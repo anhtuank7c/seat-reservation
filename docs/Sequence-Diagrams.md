@@ -145,7 +145,7 @@ sequenceDiagram
     R->>PG: capture(intent)
     PG-->>R: signed event: payment.succeeded
 
-    Note over R,PG: In production the provider POSTs this<br/>webhook asynchronously; here it is returned inline.
+    Note over R,PG: In production the provider POSTs this<br/>webhook asynchronously — here it is returned inline.
 
     R->>R: confirmPayment(event)
     R->>PG: verify(signature) ✓
@@ -205,7 +205,7 @@ sequenceDiagram
     PG-->>R: signed event: payment.failed
     R->>R: confirmPayment(event)
     R->>DB: putPayment(FAILED)
-    Note over DB: Seat stays HELD; it is released lazily<br/>when the TTL lapses (no reservation created).
+    Note over DB: Seat stays HELD — released lazily<br/>when the TTL lapses (no reservation created).
     R-->>U: payment failed ❌
 ```
 
