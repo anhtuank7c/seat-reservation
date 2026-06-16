@@ -1,0 +1,19 @@
+{
+  "name": "seat-reservation-core",
+  "version": "1.0.0",
+  "description": "TypeScript, in-memory, OOP model of the core seat-reservation business logic. Zero runtime dependencies — runs on Node's native type stripping.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "test": "node --test",
+    "demo": "node demo.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  },
+  "license": "MIT"
+}
