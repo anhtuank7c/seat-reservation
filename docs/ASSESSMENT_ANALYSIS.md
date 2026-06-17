@@ -45,7 +45,7 @@ anticipate *before* being told about them:
 
 | Hazard | Why it bites | Demonstrated by |
 |---|---|---|
-| **Double-booking / oversell** | Concurrent buyers, one seat. The classic check-then-act race. | atomic compare-and-set in `holdSeat`; `UNIQUE(seat)` reservation backstop |
+| **Double-booking / oversell** | Concurrent buyers, one seat. The classic check-then-act race. | optimistic locking via atomic compare-and-swap in `holdSeat`; `UNIQUE(seat)` reservation backstop |
 | **Checkout holds & TTL** | A seat must be reserved *during* payment, not given away mid-flow. | `HELD` state with `heldUntil` |
 | **Abandoned checkout** | Users leave; inventory must not be locked forever. | lazy expiry (`isClaimableAt`) + `releaseExpiredHolds` sweeper |
 | **Payment ↔ reservation consistency** | Charging (external) and reserving (our DB) can't share one transaction. | hold-before-charge ordering; idempotent `confirmPayment` |
@@ -79,7 +79,7 @@ Stated up front, because *explaining compromises* is itself on the rubric.
 | Decision | Chosen here | Production path | Why this is fine for the assessment |
 |---|---|---|---|
 | Persistence | In-memory `Map`s | Postgres / SQLite | Concurrency semantics modelled with versioned CAS — the *logic* is identical. |
-| Concurrency control | Optimistic compare-and-set | `SELECT … FOR UPDATE` or `UPDATE … WHERE version=?` | CAS is the same invariant; swap the store, keep the service. |
+| Concurrency control | Optimistic locking (versioned compare-and-swap) | Pessimistic locking (`SELECT … FOR UPDATE`) or DB-level optimistic locking (`UPDATE … WHERE version=?`) | CAS is the same invariant; swap the store, keep the service. |
 | Hold expiry | Lazy + optional sweeper | Background cron / queue | Lazy expiry is correct on its own; the sweeper is just tidiness. |
 | Sessions | Server-side, revocable | DB sessions / signed cookies | Models true 90-day expiry **and** revocation; JWT would trade revocability for statelessness. |
 | Payments | In-repo mock gateway | Stripe + real webhooks/retries | Exercises idempotency, signing, and refunds without an account or network. |
@@ -91,7 +91,7 @@ Stated up front, because *explaining compromises* is itself on the rubric.
 
 The genuinely hard parts of a seat-reservation business are **not** the UI or the CRUD — they are
 *never double-booking a seat under concurrency* and *never letting money and inventory disagree*.
-This submission isolates exactly those, models them with real concurrency (versioned compare-and-set
+This submission isolates exactly those, models them with real concurrency (versioned compare-and-swap
 plus a unique-constraint backstop) and a real payment lifecycle (signed, idempotent webhooks with a
 refund compensation path), and proves each edge case with an executable test — while documenting
 every shortcut taken to fit the time-box.

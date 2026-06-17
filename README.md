@@ -60,7 +60,7 @@ deterministically testable.
 | File | Responsibility |
 |---|---|
 | `src/domain.ts` | Entities + invariants (`Seat.isClaimableAt`, status unions) |
-| `src/store.ts` | In-memory store with **versioned compare-and-set** + **unique constraints** |
+| `src/store.ts` | In-memory store with **versioned compare-and-swap (CAS)** + **unique constraints** |
 | `src/clock.ts` | `Clock` interface · `SystemClock` / `FakeClock` — time as an injectable input |
 | `src/payment-gateway.ts` | Mock provider: idempotent intents + **HMAC-signed webhooks** |
 | `src/auth-service.ts` | Login + **90-day**, revocable, server-side sessions |
@@ -86,6 +86,7 @@ deterministically testable.
 
 ## What this deliberately omits
 
-In-memory instead of a DB, optimistic CAS instead of `SELECT … FOR UPDATE`, a mock gateway instead of
+In-memory instead of a DB, optimistic locking (versioned compare-and-swap) instead of pessimistic
+locking (`SELECT … FOR UPDATE`), a mock gateway instead of
 Stripe, passwordless login, and no HTTP/UI layer. Each is a conscious, time-boxed trade-off with its
 production path spelled out in [`ASSESSMENT_ANALYSIS.md`](./docs/ASSESSMENT_ANALYSIS.md#5-trade-offs--deliberate-omissions).

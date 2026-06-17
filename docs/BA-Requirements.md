@@ -184,7 +184,7 @@ stateDiagram-v2
 
 | Risk | Mitigation |
 |---|---|
-| Lost-update race oversells a seat | Atomic compare-and-set + `UNIQUE(seat)` backstop (BR-1) |
+| Lost-update race oversells a seat | Optimistic locking via atomic compare-and-swap + `UNIQUE(seat)` backstop (BR-1) |
 | Webhook retries double-charge / double-book | Idempotency key + once-only confirmation (BR-8) |
 | Customer charged with no seat | Compensating refund on un-honorable payment (BR-7) |
 | Inventory locked by abandoned carts | Hold TTL + lazy/sweeper release (BR-4) |

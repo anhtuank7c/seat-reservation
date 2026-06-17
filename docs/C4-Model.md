@@ -100,7 +100,7 @@ C4Component
         Component(rsvc, "ReservationService", "src/reservation-service.ts", "Core workflow: holdSeat / pay / confirmPayment / cancelHold / releaseExpiredHolds. Enforces BR-1..BR-9, BR-11")
         Component(auth, "AuthService", "src/auth-service.ts", "login / authenticate / logout; 90-day revocable sessions. BR-2, BR-10")
         Component(gw, "MockPaymentGateway", "src/payment-gateway.ts", "Idempotent intents; HMAC-signed webhooks; refunds. BR-7, BR-8, BR-9")
-        Component(store, "InMemoryStore", "src/store.ts", "Persistence port: compare-and-set + unique constraints")
+        Component(store, "InMemoryStore", "src/store.ts", "Persistence port: compare-and-swap + unique constraints")
         Component(clock, "Clock", "src/clock.ts", "Injectable time: System / Fake")
         Component(domain, "Domain Model", "src/domain.ts", "Seat, Reservation, Payment, Session, User + invariants")
     }
@@ -124,7 +124,7 @@ C4Component
 | **ReservationService** | `src/reservation-service.ts` | ✅ | The core. Atomic holds, hold-before-charge, idempotent confirmation, refund compensation, lazy expiry. |
 | AuthService | `src/auth-service.ts` | ✅ | Login + `authenticate` (90-day expiry) + revocable sessions. |
 | MockPaymentGateway | `src/payment-gateway.ts` | 🟡 | Stripe-shaped: idempotent intents, signed/verified webhooks, refunds. |
-| InMemoryStore | `src/store.ts` | 🟡 | Persistence port with versioned compare-and-set + unique constraints. |
+| InMemoryStore | `src/store.ts` | 🟡 | Persistence port with versioned compare-and-swap (CAS) + unique constraints. |
 | Clock | `src/clock.ts` | ✅ | `now()` as an injected dependency → deterministic time-based rules. |
 | Domain Model | `src/domain.ts` | ✅ | Entities + invariants (`Seat.isClaimableAt`, status unions). |
 
@@ -254,7 +254,7 @@ C4Deployment
 | Environment | Topology | Status |
 |---|---|---|
 | **Harness (this repo)** | A single `node` process: `node --test` / `node demo.ts`. No network; DB & gateway in-process. | ✅ |
-| **Target production** | Web on CDN/edge · API on container/serverless · managed PostgreSQL · external Payment Gateway. Scale concurrency control from in-process CAS to DB row locks / `SELECT … FOR UPDATE`. | ⬜ |
+| **Target production** | Web on CDN/edge · API on container/serverless · managed PostgreSQL · external Payment Gateway. Scale concurrency control from in-process optimistic locking (CAS) to DB-level optimistic or pessimistic locking (`SELECT … FOR UPDATE` / row locks). | ⬜ |
 
 ---
 

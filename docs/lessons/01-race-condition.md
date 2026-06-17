@@ -6,7 +6,7 @@
 
 - Hiểu **race condition** là gì bằng một ví dụ đời thường, rồi nhìn thấy nó *bằng mắt* trong code.
 - Hiểu lỗi kinh điển **check-then-act** (kiểm tra rồi mới hành động).
-- Hiểu và đọc được kỹ thuật **compare-and-set (CAS)** dùng để chống bán trùng.
+- Hiểu và đọc được kỹ thuật **compare-and-swap (CAS)** dùng để chống bán trùng.
 - Hiểu vì sao cần một lớp bảo vệ thứ hai: **unique constraint**.
 
 > Đây là invariant số 1 của dự án: **không bao giờ bán trùng ghế** (no double-booking).
@@ -69,14 +69,14 @@ Cả hai đều "thành công". Hệ thống tin rằng cả An và Bình đều
 
 ---
 
-## 3. Phiên bản đúng — Compare-and-Set (CAS)
+## 3. Phiên bản đúng — Compare-and-Swap (CAS)
 
 Ý tưởng sửa lỗi rất tự nhiên: *"Tôi sẽ chỉ ghi nếu ghế vẫn còn y như lúc tôi đọc nó. Nếu ai đó đã đổi
 nó rồi, tôi thua cuộc và phải thử lại."*
 
 Để biết "ghế có còn y như lúc tôi đọc không", mỗi ghế mang một con số gọi là **version** — cứ mỗi lần
-ghi thành công, version tăng 1. Đây gọi là **optimistic concurrency** (lạc quan: cứ làm, đến lúc ghi
-mới kiểm tra xung đột).
+ghi thành công, version tăng 1. Đây gọi là **optimistic locking** (optimistic concurrency control — cơ
+chế khóa lạc quan: cứ làm, đến lúc ghi mới kiểm tra xung đột).
 
 Xem `holdSeat` (phiên bản đúng) tại `src/reservation-service.ts:87`:
 
@@ -167,7 +167,7 @@ So sánh hai lớp:
 
 | Lớp | Cơ chế | Chống được gì |
 |---|---|---|
-| Lớp 1 (chủ động) | compare-and-set trên `version` | Hai người cùng *giữ chỗ* một ghế |
+| Lớp 1 (chủ động) | compare-and-swap trên `version` | Hai người cùng *giữ chỗ* một ghế |
 | Lớp 2 (dự phòng) | `UNIQUE(seat_id)` trên reservation | Hai người cùng *đặt thành công* một ghế |
 
 ---
@@ -215,8 +215,8 @@ Dự án dùng store trong bộ nhớ, nhưng *logic* y hệt sản phẩm thậ
 
 | Trong dự án | Ngoài production (ví dụ Postgres) |
 |---|---|
-| `compareAndSwapSeat(seat, version)` | `UPDATE seats SET ... WHERE id = ? AND version = ?` (kiểm tra số dòng bị ảnh hưởng) |
-| Critical section không `await` | `SELECT ... FOR UPDATE` (khóa dòng), hoặc transaction |
+| `compareAndSwapSeat(seat, version)` — optimistic locking | `UPDATE seats SET ... WHERE id = ? AND version = ?` (kiểm tra số dòng bị ảnh hưởng) |
+| Critical section không `await` | `SELECT ... FOR UPDATE` (pessimistic locking — khóa dòng), hoặc transaction |
 | `throw 'SEAT_ALREADY_RESERVED'` | Database ném lỗi vi phạm `UNIQUE(seat_id)` |
 
 👉 **Bài học thiết kế:** chọn đúng *invariant* (đúng một người thắng) thì việc đổi từ in-memory sang
@@ -231,8 +231,9 @@ Postgres chỉ là thay phần lưu trữ — phần logic nghiệp vụ không 
    `node --test`. Test #2 còn xanh không? Giải thích.
 2. Trong `holdSeatNaive`, đường đi tới bug là check-then-act. Hãy chỉ ra *chính xác* dòng nào là
    "check" và dòng nào là "act", và khe hở nằm ở đâu.
-3. Phiên bản CAS dùng *optimistic* concurrency (cứ làm, đụng độ thì thua & báo lỗi). Một cách khác là
-   *pessimistic* (khóa ghế lại trước khi ai khác đụng vào). Nêu một ưu và một nhược của mỗi cách.
+3. Phiên bản CAS dùng **optimistic locking** (cứ làm, đụng độ thì thua & báo lỗi). Một cách khác là
+   **pessimistic locking** (khóa ghế lại trước khi ai khác đụng vào, ví dụ `SELECT ... FOR UPDATE`).
+   Nêu một ưu và một nhược của mỗi cách.
 4. Vì sao có CAS rồi mà vẫn cần `UNIQUE(seat_id)`? Hãy nghĩ ra một kịch bản (dù hiếm) mà lớp 1 không
    đủ và lớp 2 cứu nguy. (Gợi ý: bug trong code, hoặc chạy nhiều server cùng lúc.)
 

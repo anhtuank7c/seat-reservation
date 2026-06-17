@@ -136,7 +136,7 @@ và *đường đi lên production*. Trích từ `docs/ASSESSMENT_ANALYSIS.md`:
 | Quyết định | Trong dự án | Đường lên production | Vì sao chấp nhận được |
 |---|---|---|---|
 | Lưu trữ | `Map` trong bộ nhớ | Postgres / SQLite | Ngữ nghĩa concurrency đã mô phỏng bằng CAS — *logic* y hệt |
-| Điều khiển tương tranh | Optimistic CAS | `SELECT ... FOR UPDATE` | Cùng một invariant; đổi store, giữ nguyên service |
+| Điều khiển tương tranh | Optimistic locking (versioned compare-and-swap) | Pessimistic locking (`SELECT ... FOR UPDATE`) | Cùng một invariant; đổi store, giữ nguyên service |
 | Hết hạn hold | Lazy + sweeper tùy chọn | Cron / queue nền | Lazy expiry tự đúng; sweeper chỉ để gọn |
 | Session | Server-side, revocable | DB session / signed cookie | Mô phỏng đúng 90 ngày *và* thu hồi được |
 | Thanh toán | Mock gateway | Stripe + webhook thật | Vẫn luyện idempotency, ký, refund — không cần tài khoản |
@@ -173,7 +173,7 @@ Bạn đã đi qua đủ các thử thách cốt lõi mà một hệ thống ngh
 
 | Bài | Thử thách | Vũ khí phòng thủ |
 |---|---|---|
-| 1 | Bán trùng dưới tương tranh | compare-and-set + `UNIQUE` constraint |
+| 1 | Bán trùng dưới tương tranh | optimistic locking (compare-and-swap) + `UNIQUE` constraint |
 | 2 | Khách bỏ giỏ hàng, kho bị kẹt | TTL + lazy expiry |
 | 3 | Tiền và hàng lệch nhau | hold-before-charge + refund/compensation |
 | 4 | Webhook lặp / giả mạo | idempotency key + chữ ký HMAC |

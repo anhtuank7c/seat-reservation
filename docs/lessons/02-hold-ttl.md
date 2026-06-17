@@ -105,7 +105,7 @@ async releaseExpiredHolds(): Promise<number> {
 }
 ```
 
-Chú ý: sweeper vẫn dùng **compare-and-set** (Bài 1) khi thả ghế, vì *ngay cả lúc dọn dẹp* cũng có thể
+Chú ý: sweeper vẫn dùng **compare-and-swap** (Bài 1) khi thả ghế, vì *ngay cả lúc dọn dẹp* cũng có thể
 có người khác đang thao tác trên ghế đó. Tư duy phòng thủ này nhất quán xuyên suốt dự án.
 
 ---

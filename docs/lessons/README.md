@@ -24,7 +24,7 @@ bản chất vấn đề.
 ## Cách dùng thuật ngữ trong khóa học
 
 Khóa viết bằng **tiếng Việt**, nhưng **giữ nguyên thuật ngữ tiếng Anh** (race condition, idempotency,
-compare-and-set...) vì đó là những từ bạn sẽ gặp hằng ngày khi đi làm và khi đọc tài liệu. Mỗi thuật
+compare-and-swap...) vì đó là những từ bạn sẽ gặp hằng ngày khi đi làm và khi đọc tài liệu. Mỗi thuật
 ngữ đều được giải thích ngắn gọn ở lần xuất hiện đầu tiên.
 
 ## Lộ trình các bài học
@@ -32,7 +32,7 @@ ngữ đều được giải thích ngắn gọn ở lần xuất hiện đầu 
 | Bài | Tên | Thử thách của hệ thống (system challenge) |
 |---|---|---|
 | [Bài 0](./00-tong-quan.md) | Tổng quan & "máy trạng thái" của một chiếc ghế | Mô hình hóa nghiệp vụ thành *state machine* |
-| [Bài 1](./01-race-condition.md) | Race condition & chống bán trùng ghế | Concurrency, *compare-and-set*, unique constraint |
+| [Bài 1](./01-race-condition.md) | Race condition & chống bán trùng ghế | Concurrency, *optimistic locking (compare-and-swap)*, unique constraint |
 | [Bài 2](./02-hold-ttl.md) | Giữ chỗ tạm (hold), TTL & khách bỏ giỏ hàng | Inventory tự phục hồi, *lazy expiry* |
 | [Bài 3](./03-payment-consistency.md) | Tiền và hàng không được "lệch nhau" | Phối hợp 2 hệ thống không cùng transaction, *compensation/refund* |
 | [Bài 4](./04-webhook-idempotency.md) | Webhook: lặp lại, sai thứ tự, và giả mạo | Idempotency, *HMAC signature*, độ tin cậy |

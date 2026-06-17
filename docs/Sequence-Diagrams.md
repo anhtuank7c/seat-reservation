@@ -28,7 +28,7 @@ sequenceDiagram
     A-->>U: session token (valid 90 days)
 
     U->>R: holdSeat(token, seatId)
-    R->>DB: atomic claim (compare-and-set)
+    R->>DB: atomic claim (compare-and-swap)
     DB-->>R: won → seat HELD (TTL 5 min)
     R-->>U: seat held, proceed to pay
 
@@ -119,7 +119,7 @@ sequenceDiagram
     R-->>B: SEAT_TAKEN ❌
 ```
 
-> **Business rule:** BR-1 (no double-booking). The compare-and-set is the in-memory equivalent of
+> **Business rule:** BR-1 (no double-booking). The compare-and-swap is the in-memory equivalent of
 > `UPDATE seats SET ... WHERE id = ? AND version = ?` (or `SELECT ... FOR UPDATE`).
 > **Verified by:** test *"two buyers race for one seat → exactly one wins"*, with the
 > intentionally-broken `holdSeatNaive` proving the bug the CAS prevents.

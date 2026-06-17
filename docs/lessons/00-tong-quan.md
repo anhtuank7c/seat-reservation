@@ -111,7 +111,7 @@ không có chuyện hai nơi hiểu "ghế trống" theo hai kiểu khác nhau.
 | File | Trách nhiệm |
 |---|---|
 | `src/domain.ts` | Các thực thể (Seat, Payment...) + quy tắc bất biến (`Seat.isClaimableAt`) |
-| `src/store.ts` | Kho lưu trữ trong bộ nhớ — đóng vai database, có **compare-and-set** + **unique constraint** |
+| `src/store.ts` | Kho lưu trữ trong bộ nhớ — đóng vai database, có **compare-and-swap** + **unique constraint** |
 | `src/clock.ts` | Đồng hồ — thời gian được "tiêm vào" (inject) để test được |
 | `src/payment-gateway.ts` | Cổng thanh toán giả lập — intent idempotent + webhook ký **HMAC** |
 | `src/auth-service.ts` | Đăng nhập + session 90 ngày, có thể thu hồi |
