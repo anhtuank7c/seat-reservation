@@ -7,7 +7,7 @@
 - Hiểu vì sao cần một trạng thái **HELD** (giữ tạm) nằm giữa "trống" và "đã đặt".
 - Hiểu **TTL** (time-to-live) và cách dùng nó để xử lý khách hàng bỏ ngang.
 - Hiểu kỹ thuật **lazy expiry** (hết hạn kiểu lười) và vì sao nó *tự đúng* mà không cần job chạy nền.
-- Hiểu một quy tắc **công bằng** (fairness): mỗi người chỉ giữ một ghế.
+- Hiểu một quy tắc **công bằng** (fairness): mỗi người giữ tối đa N ghế (per-user hold cap).
 
 > Đây là invariant số 3: **giỏ hàng bị bỏ quên phải tự phục hồi** (abandoned checkouts self-heal).
 
@@ -110,26 +110,32 @@ có người khác đang thao tác trên ghế đó. Tư duy phòng thủ này n
 
 ---
 
-## 5. Quy tắc công bằng: mỗi người một ghế
+## 5. Quy tắc công bằng: mỗi người tối đa N ghế (per-user hold cap)
 
 Một loại "tấn công"/lạm dụng đời thực: một người giữ *tất cả* các ghế để người khác không mua được
-(đầu cơ, hoặc vô tình do bug client gọi nhiều lần). Dự án chặn bằng quy tắc **một hold đang hiệu lực
-mỗi người** (`src/reservation-service.ts:93`):
+(đầu cơ, hoặc vô tình do bug client gọi nhiều lần). Nhưng nếu chặn cứng **mỗi người chỉ 1 ghế** thì
+lại sai với thực tế: ngoài đời một người thường đặt **vài ghế cho cả nhóm/gia đình**. Vì vậy dự án
+dùng một **hạn mức mỗi người (per-user hold cap)** — giữ tối đa `N` ghế đang hiệu lực, mặc định `6` —
+đủ để đặt theo nhóm nhưng vẫn chặn việc ôm hết kho (`src/reservation-service.ts:93`):
 
 ```ts
-const existingHold = await this.store.findActiveHoldForUser(session.userId, now);
-if (existingHold) {
-  if (existingHold.id === seatId) return existingHold;   // chọn lại đúng ghế mình đang giữ → không sao (idempotent)
-  throw new ReservationError('ALREADY_HOLDING', `You already hold seat ${existingHold.label}`);
+const activeHolds = await this.store.findActiveHoldsForUser(session.userId, now);
+const alreadyHeld = activeHolds.find((held) => held.id === seatId);
+if (alreadyHeld) return alreadyHeld;   // chọn lại đúng ghế mình đang giữ → không sao (idempotent)
+if (activeHolds.length >= this.maxSeatsPerUser) {
+  throw new ReservationError('HOLD_LIMIT_REACHED', `You may hold at most ${this.maxSeatsPerUser} seats at a time`);
 }
 ```
 
 Chi tiết tinh tế đáng khen: nếu bạn chọn lại **đúng cái ghế bạn đang giữ**, hệ thống trả về bình
-thường thay vì báo lỗi. Đây là tính **idempotent** (làm lại nhiều lần cũng cho cùng kết quả) — ta sẽ
-gặp lại khái niệm này ở Bài 4.
+thường thay vì báo lỗi (và **không** tính thêm vào hạn mức). Đây là tính **idempotent** (làm lại nhiều
+lần cũng cho cùng kết quả) — ta sẽ gặp lại khái niệm này ở Bài 4.
 
-> Lưu ý `findActiveHoldForUser` (`src/store.ts:94`) chỉ tính hold **còn hiệu lực** (`heldUntil > now`).
+> Lưu ý `findActiveHoldsForUser` (`src/store.ts:94`) chỉ tính hold **còn hiệu lực** (`heldUntil > now`).
 > Tức là một hold đã hết hạn thì không bị tính — bạn vẫn được giữ ghế mới. Lại là lazy expiry.
+>
+> `N` được tiêm vào qua `maxSeatsPerUser` (mặc định 6) nên mỗi sự kiện có thể chỉnh hạn mức riêng mà
+> không sửa logic.
 
 ---
 
@@ -150,11 +156,15 @@ assert.equal(seat.heldBy, (await app.store.findUserByEmail('b@x.com'))!.id);
 > hồ giả. Vì sao làm được điều này? Vì thời gian được *tiêm vào* hệ thống chứ không gọi `Date.now()`
 > bừa bãi. Đây là chủ đề của [Bài 6](./06-testability-tradeoffs.md).
 
-**Test #11 — mỗi người một ghế** (`reservation.test.ts:177`):
+**Test #11 — giữ tới hạn mức thì được, quá thì bị chặn** (`reservation.test.ts:177`):
 
 ```ts
+const app = await appWith({ seatCount: 4, maxSeatsPerUser: 2 });
+// ...
 await app.reservations.holdSeat(a.token, 'seat_A1');
-await assert.rejects(() => app.reservations.holdSeat(a.token, 'seat_A2'), code('ALREADY_HOLDING'));
+await app.reservations.holdSeat(a.token, 'seat_A2');           // vẫn trong hạn mức → OK (đặt cho nhóm)
+await app.reservations.holdSeat(a.token, 'seat_A1');           // chọn lại ghế cũ → idempotent, không tính thêm
+await assert.rejects(() => app.reservations.holdSeat(a.token, 'seat_A3'), code('HOLD_LIMIT_REACHED')); // quá hạn mức
 ```
 
 ---
@@ -167,8 +177,10 @@ await assert.rejects(() => app.reservations.holdSeat(a.token, 'seat_A2'), code('
    2 giờ) thì kho ghế ra sao? TTL là một **trade-off** — hãy nêu các yếu tố bạn cân nhắc để chọn con số.
 3. Sweeper `releaseExpiredHolds` "không bắt buộc cho tính đúng đắn". Vậy *khi nào* bạn thật sự cần nó
    trong production? (Gợi ý: nghĩ về cái mà người dùng *nhìn thấy* trên màn hình danh sách ghế.)
-4. **Phá để hiểu:** trong `findActiveHoldForUser` (`src/store.ts:94`), thử bỏ điều kiện
+4. **Phá để hiểu:** trong `findActiveHoldsForUser` (`src/store.ts:94`), thử bỏ điều kiện
    `seat.heldUntil > now`. Theo bạn test nào sẽ hỏng, và vì sao? Chạy `node --test` để kiểm chứng.
+5. Hạn mức `N` nên đặt bằng bao nhiêu? Nêu rủi ro nếu để **quá cao** (gần như không giới hạn) và nếu
+   để **quá thấp** (ví dụ 1). Vì sao đặt `N` thành **tham số tiêm vào** lại tốt hơn hard-code?
 
 ---
 

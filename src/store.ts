@@ -91,14 +91,15 @@ export class InMemoryStore {
     seat.version += 1;
   }
 
-  async findActiveHoldForUser(userId: string, now: number): Promise<Seat | null> {
+  async findActiveHoldsForUser(userId: string, now: number): Promise<Seat[]> {
     await this._io();
+    const holds: Seat[] = [];
     for (const seat of this._seats.values()) {
       if (seat.status === 'HELD' && seat.heldBy === userId && seat.heldUntil !== null && seat.heldUntil > now) {
-        return seat.clone();
+        holds.push(seat.clone());
       }
     }
-    return null;
+    return holds;
   }
 
   // ---- reservations (seatId UNIQUE => no oversell) -------------------------

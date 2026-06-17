@@ -25,6 +25,7 @@ export interface CreateAppOptions {
   latencyMs?: number;
   holdTtlMs?: number;
   seatCount?: number;
+  maxSeatsPerUser?: number;
 }
 
 /**
@@ -32,12 +33,12 @@ export interface CreateAppOptions {
  * Everything time- and money-related is injected (clock, gateway) so tests and the demo
  * stay deterministic. This is the single place wiring lives.
  */
-export async function createApp({ clock, latencyMs = 0, holdTtlMs, seatCount = 3 }: CreateAppOptions): Promise<App> {
+export async function createApp({ clock, latencyMs = 0, holdTtlMs, seatCount = 3, maxSeatsPerUser }: CreateAppOptions): Promise<App> {
   const idGen = createIdGen();
   const store = new InMemoryStore({ latencyMs });
   const auth = new AuthService({ store, clock, idGen });
   const gateway = new MockPaymentGateway({ clock, idGen });
-  const reservations = new ReservationService({ store, clock, gateway, auth, idGen, holdTtlMs });
+  const reservations = new ReservationService({ store, clock, gateway, auth, idGen, holdTtlMs, maxSeatsPerUser });
 
   for (let i = 0; i < seatCount; i += 1) {
     const label = `A${i + 1}`;

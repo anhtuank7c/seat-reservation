@@ -17,7 +17,7 @@ interface TestApp extends App {
   clock: FakeClock;
 }
 
-async function appWith(opts: { latencyMs?: number; holdTtlMs?: number } = {}): Promise<TestApp> {
+async function appWith(opts: { latencyMs?: number; holdTtlMs?: number; seatCount?: number; maxSeatsPerUser?: number } = {}): Promise<TestApp> {
   const clock = new FakeClock(START);
   const app = await createApp({ clock, ...opts });
   return { clock, ...app };
@@ -174,12 +174,19 @@ test('oversell backstop: an already-reserved seat cannot be held again', async (
 });
 
 // 11 --------------------------------------------------------------------------
-test('fairness: a user may hold only one seat at a time', async () => {
-  const app = await appWith();
+test('fairness: a user may hold up to the cap, but no more', async () => {
+  const app = await appWith({ seatCount: 4, maxSeatsPerUser: 2 });
   const a = await loginAs(app, 'a@x.com');
 
+  // Within the cap: a group buyer can hold several seats.
   await app.reservations.holdSeat(a.token, 'seat_A1');
-  await assert.rejects(() => app.reservations.holdSeat(a.token, 'seat_A2'), code('ALREADY_HOLDING'));
+  await app.reservations.holdSeat(a.token, 'seat_A2');
+
+  // Re-selecting a seat already held is idempotent — it must not count against the cap.
+  assert.equal((await app.reservations.holdSeat(a.token, 'seat_A1')).id, 'seat_A1');
+
+  // One past the cap is rejected.
+  await assert.rejects(() => app.reservations.holdSeat(a.token, 'seat_A3'), code('HOLD_LIMIT_REACHED'));
 });
 
 // 12 --------------------------------------------------------------------------

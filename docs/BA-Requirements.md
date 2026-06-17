@@ -90,7 +90,7 @@ admin tooling, horizontal-scale infrastructure, UI styling.
 | **BR-3** | Selecting a seat places a **temporary, exclusive hold** for a fixed TTL; only the holder may pay for it during that window. |
 | **BR-4** | A hold that is **not paid within its TTL is released** automatically and the seat returns to sale. |
 | **BR-5** | A seat becomes **RESERVED only upon successful payment** completion. |
-| **BR-6** | A user may hold **at most one seat at a time** (fairness — no inventory hoarding). |
+| **BR-6** | A user may hold **at most N seats at a time** (a configurable per-user cap, default 6 — supports group bookings while preventing inventory hoarding). |
 | **BR-7** | A customer is **never charged without receiving a seat**; if a paid hold can no longer be honored, the payment is **refunded**. |
 | **BR-8** | Payment confirmation is processed **exactly once**, regardless of duplicate or retried provider notifications. |
 | **BR-9** | Payment notifications are **authenticated** (signature-verified) before being acted upon. |
@@ -108,7 +108,7 @@ admin tooling, horizontal-scale infrastructure, UI styling.
 - **Actor:** Customer. **Main flow:** system returns the 3 seats with current status.
 
 ### UC-3 · Select (hold) a seat — *core*
-- **Actor:** Customer · **Precondition:** authenticated; no other active hold (BR-6).
+- **Actor:** Customer · **Precondition:** authenticated; the user is below the per-user hold cap (BR-6).
 - **Main flow:** customer selects a seat → system **atomically claims** it → seat becomes `HELD` for the holder until `now + TTL`.
 - **Alternate A1 (already held/reserved):** reject with *seat taken*. *(BR-1, BR-3)*
 - **Alternate A2 (concurrent claim):** exactly one of the racing customers wins; the others are rejected. *(BR-1 — see Sequence Diagram 3)*
@@ -168,7 +168,7 @@ stateDiagram-v2
 | Forged/unsigned webhook | Rejected, no state change | BR-9 |
 | Session older than 90 days | Treated as logged out; actions rejected | BR-10 |
 | User B acts on user A's hold | Rejected | BR-11 |
-| One user tries to hold several seats | Only one active hold allowed | BR-6 |
+| One user holds seats past the per-user cap | Rejected once the cap is reached | BR-6 |
 | Already-reserved seat claimed again | Rejected (unique-seat backstop) | BR-1 |
 
 ## 13. Assumptions, constraints & dependencies
@@ -200,7 +200,7 @@ stateDiagram-v2
 | BR-3 Hold + TTL | UC-3 | 2, 8 | *happy path* · *hold expires after TTL* | `holdSeat`, `Seat.isClaimableAt` |
 | BR-4 Abandoned hold releases | UC-7 | 6, 8 | *hold expires…* · *declined → releases at TTL* | `isClaimableAt`, `releaseExpiredHolds` |
 | BR-5 Reserve only on payment | UC-5 | 4 | *happy path* | `confirmPayment` |
-| BR-6 One hold per user | UC-3 | 2 | *a user may hold only one seat at a time* | `findActiveHoldForUser` |
+| BR-6 Per-user hold cap | UC-3 | 2 | *a user may hold up to the cap, but no more* | `findActiveHoldsForUser` |
 | BR-7 Refund if seat un-honorable | UC-5 | 5 | *paid but hold expired → refund* | `confirmPayment` → `_refund` |
 | BR-8 Idempotent confirmation | UC-5 | 7 | *duplicate webhook is idempotent* | `confirmPayment`, `findPaymentByKey` |
 | BR-9 Verify webhook | UC-5 | 4, 7 | *forged signature rejected* | `gateway.verify` |

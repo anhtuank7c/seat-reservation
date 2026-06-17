@@ -78,8 +78,8 @@ sequenceDiagram
 
     U->>R: holdSeat(token, seatId)
     R->>R: authenticate(token)
-    R->>DB: findActiveHoldForUser(userId)
-    DB-->>R: none (BR-6: one hold per user)
+    R->>DB: findActiveHoldsForUser(userId)
+    DB-->>R: count below cap (BR-6: per-user hold cap)
     R->>DB: getSeat(seatId)
     DB-->>R: seat { status: AVAILABLE, version: v }
     R->>DB: compareAndSwapSeat(seat→HELD, expected = v)
@@ -87,8 +87,8 @@ sequenceDiagram
     R-->>U: HELD until now + TTL
 ```
 
-> **Business rules:** BR-3 (temporary hold + TTL), BR-6 (one hold per user). Re-selecting a seat you
-> already hold is idempotent (returns the existing hold).
+> **Business rules:** BR-3 (temporary hold + TTL), BR-6 (per-user hold cap). Re-selecting a seat you
+> already hold is idempotent (returns the existing hold) and never counts against the cap.
 
 ---
 

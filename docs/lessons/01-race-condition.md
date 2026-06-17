@@ -85,9 +85,9 @@ async holdSeat(token: string, seatId: string): Promise<Seat> {
   const session = await this._requireSession(token);
   const now = this.clock.now();
 
-  // (Quy tắc công bằng: mỗi người chỉ giữ 1 ghế — xem Bài 2)
-  const existingHold = await this.store.findActiveHoldForUser(session.userId, now);
-  if (existingHold) { /* ... */ }
+  // (Quy tắc công bằng: mỗi người giữ tối đa N ghế — đủ để đặt cho nhóm, xem Bài 2)
+  const activeHolds = await this.store.findActiveHoldsForUser(session.userId, now);
+  if (activeHolds.length >= this.maxSeatsPerUser) { /* ... */ }
 
   const seat = await this.store.getSeat(seatId);
   if (!seat) throw new ReservationError('NO_SUCH_SEAT', 'No such seat');

@@ -52,7 +52,7 @@ anticipate *before* being told about them:
 | **Money taken, no seat** | Hold lapsed or lost after charge — the worst outcome. | automatic **refund** compensation path |
 | **Webhook reliability** | Providers retry and can deliver duplicates/out-of-order. | idempotency on `Payment` status + key |
 | **Webhook authenticity** | A webhook URL is public; anyone can POST a fake "paid". | HMAC sign + constant-time `verify` |
-| **Fairness** | One actor shouldn't lock all inventory. | one-active-hold-per-user rule |
+| **Fairness** | One actor shouldn't lock all inventory, yet group buyers need several seats. | configurable per-user hold cap (default 6) |
 | **Session security** | 90-day sessions are long; theft/revocation matter. | server-side revocable sessions; `logout` |
 | **Observability / audit** | Money is involved — every transition must be reconstructable. | `Payment` + `Reservation` rows are the ledger |
 

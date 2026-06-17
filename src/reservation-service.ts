@@ -7,6 +7,7 @@ import type { MockPaymentGateway, PaymentIntent, WebhookEvent, CaptureScenario }
 
 const DEFAULT_HOLD_TTL_MS = 5 * 60 * 1000; // 5 minutes to pay before the seat is released
 const DEFAULT_AMOUNT = 5000; // cents
+const DEFAULT_MAX_SEATS_PER_USER = 6; // a person may book a few seats for a group, but not hoard inventory
 
 /** Typed domain error so callers/tests can branch on `.code`, not on message strings. */
 export class ReservationError extends Error {
@@ -40,6 +41,7 @@ export interface ReservationDeps {
   idGen: IdGen;
   holdTtlMs?: number;
   amount?: number;
+  maxSeatsPerUser?: number;
 }
 
 /**
@@ -63,8 +65,9 @@ export class ReservationService {
   private idGen: IdGen;
   private holdTtlMs: number;
   private amount: number;
+  private maxSeatsPerUser: number;
 
-  constructor({ store, clock, gateway, auth, idGen, holdTtlMs = DEFAULT_HOLD_TTL_MS, amount = DEFAULT_AMOUNT }: ReservationDeps) {
+  constructor({ store, clock, gateway, auth, idGen, holdTtlMs = DEFAULT_HOLD_TTL_MS, amount = DEFAULT_AMOUNT, maxSeatsPerUser = DEFAULT_MAX_SEATS_PER_USER }: ReservationDeps) {
     this.store = store;
     this.clock = clock;
     this.gateway = gateway;
@@ -72,6 +75,7 @@ export class ReservationService {
     this.idGen = idGen;
     this.holdTtlMs = holdTtlMs;
     this.amount = amount;
+    this.maxSeatsPerUser = maxSeatsPerUser;
   }
 
   private async _requireSession(token: string | null | undefined): Promise<Session> {
@@ -88,12 +92,13 @@ export class ReservationService {
     const session = await this._requireSession(token);
     const now = this.clock.now();
 
-    // Fairness: one active hold per user, so a single person can't lock all inventory.
-    // Re-selecting the seat you already hold is idempotent.
-    const existingHold = await this.store.findActiveHoldForUser(session.userId, now);
-    if (existingHold) {
-      if (existingHold.id === seatId) return existingHold;
-      throw new ReservationError('ALREADY_HOLDING', `You already hold seat ${existingHold.label}`);
+    // Fairness: a user may hold a few seats (e.g. for a group) but not hoard all inventory.
+    // Re-selecting a seat you already hold is idempotent and never counts against the cap.
+    const activeHolds = await this.store.findActiveHoldsForUser(session.userId, now);
+    const alreadyHeld = activeHolds.find((held) => held.id === seatId);
+    if (alreadyHeld) return alreadyHeld;
+    if (activeHolds.length >= this.maxSeatsPerUser) {
+      throw new ReservationError('HOLD_LIMIT_REACHED', `You may hold at most ${this.maxSeatsPerUser} seats at a time`);
     }
 
     const seat = await this.store.getSeat(seatId);
